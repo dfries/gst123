@@ -166,6 +166,8 @@ struct Player : public KeyHandler
   GstState       last_state;
   string         old_tag_str;
 
+  double        playback_rate;
+
   enum
   {
     KEEP_CODEC_TAGS,
@@ -415,8 +417,29 @@ struct Player : public KeyHandler
     if (new_pos < 0)
       new_pos = 0;
 
-    gst_element_seek (playbin, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
-                      new_pos, GST_SEEK_TYPE_NONE,  GST_CLOCK_TIME_NONE);
+    // use *_SET for both start and stop, otherwise back to back reverses
+    // use the previous set and once reached playback terminates
+    GstSeekType start_type;
+    gint64 start_pos;
+    GstSeekType stop_type;
+    gint64 stop_pos;
+    if(playback_rate >= 0)
+    {
+      start_type = GST_SEEK_TYPE_SET;
+      start_pos = new_pos;
+      stop_type = GST_SEEK_TYPE_SET;
+      stop_pos = GST_CLOCK_TIME_NONE;
+    }
+    else
+    {
+      // when playing in reverse it is from stop to start
+      start_type = GST_SEEK_TYPE_SET;
+      start_pos = 0;
+      stop_type = GST_SEEK_TYPE_SET;
+      stop_pos = new_pos;
+    }
+    gst_element_seek (playbin, playback_rate, GST_FORMAT_TIME,
+      GST_SEEK_FLAG_FLUSH, start_type, start_pos, stop_type, stop_pos);
   }
 
   void
@@ -427,6 +450,15 @@ struct Player : public KeyHandler
 
     double new_pos_sec = cur_pos * (1.0 / GST_SECOND) + displacement;
     seek (new_pos_sec * GST_SECOND);
+  }
+
+  void
+  set_playback_rate (double rate)
+  {
+    playback_rate = rate;
+    printf("\nplayback_rate %f\n", playback_rate);
+
+    relative_seek (0);
   }
 
   void
@@ -505,6 +537,7 @@ struct Player : public KeyHandler
 
   Player() : playbin (0), loop(0), play_position (0)
   {
+    playback_rate = 1.0;
     cols = get_columns();
   }
 };
@@ -975,6 +1008,24 @@ Player::process_input (int key)
       case '1':
         normal_size();
         break;
+      case 'r':
+        set_playback_rate (playback_rate * -1);
+        break;
+      case KEY_HANDLER_BACKSPACE:
+        set_playback_rate (1);
+        break;
+      case '[':
+        set_playback_rate (playback_rate * .90);
+        break;
+      case ']':
+        set_playback_rate (playback_rate * 1.10);
+        break;
+      case '{':
+        set_playback_rate (playback_rate / 2);
+        break;
+      case '}':
+        set_playback_rate (playback_rate * 2);
+        break;
       case '?':
         print_keyboard_help();
         break;
@@ -998,6 +1049,10 @@ Player::print_keyboard_help()
   printf ("   1                    -     normal video size (only for videos)\n");
   printf ("   A/a                  -     increase/decrease opacity by 10%% (only for videos)\n");
   printf ("   s                    -     toggle subtitles  (only for videos)\n");
+  printf ("   r                    -     reverse playback\n");
+  printf ("   [ ]                  -     playback rate 10%% faster/slower\n");
+  printf ("   { }                  -     playback rate 2x faster/slower\n");
+  printf ("   Backspace            -     playback rate 1x\n");
   printf ("   n                    -     play next file\n");
   printf ("   q                    -     quit gst123\n");
   printf ("   ?                    -     this help\n");
