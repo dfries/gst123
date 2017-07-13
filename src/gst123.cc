@@ -456,7 +456,7 @@ struct Player : public KeyHandler
   set_playback_rate (double rate)
   {
     playback_rate = rate;
-    printf("\nplayback_rate %f\n", playback_rate);
+    Msg::update_status ("playback_rate %f", playback_rate);
 
     relative_seek (0);
   }
