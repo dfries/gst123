@@ -417,29 +417,24 @@ struct Player : public KeyHandler
     if (new_pos < 0)
       new_pos = 0;
 
-    // use *_SET for both start and stop, otherwise back to back reverses
-    // use the previous set and once reached playback terminates
-    GstSeekType start_type;
+    // Use *_SET and a position for both start and stop, otherwise quick
+    // changes (forward, backward, forward), can leave stop_pos as the reverse
+    // start_pos and once playing forward reaches that point playback stops.
     gint64 start_pos;
-    GstSeekType stop_type;
     gint64 stop_pos;
-    if(playback_rate >= 0)
-    {
-      start_type = GST_SEEK_TYPE_SET;
-      start_pos = new_pos;
-      stop_type = GST_SEEK_TYPE_SET;
-      stop_pos = GST_CLOCK_TIME_NONE;
-    }
+    if (playback_rate >= 0)
+      {
+        start_pos = new_pos;
+        stop_pos = GST_CLOCK_TIME_NONE;
+      }
     else
-    {
-      // when playing in reverse it is from stop to start
-      start_type = GST_SEEK_TYPE_SET;
-      start_pos = 0;
-      stop_type = GST_SEEK_TYPE_SET;
-      stop_pos = new_pos;
-    }
-    gst_element_seek (playbin, playback_rate, GST_FORMAT_TIME,
-      GST_SEEK_FLAG_FLUSH, start_type, start_pos, stop_type, stop_pos);
+      {
+        // when playing in reverse it is from stop to start
+        start_pos = 0;
+        stop_pos = new_pos;
+      }
+    gst_element_seek (playbin, playback_rate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH,
+                      GST_SEEK_TYPE_SET, start_pos, GST_SEEK_TYPE_SET, stop_pos);
   }
 
   void
@@ -456,7 +451,7 @@ struct Player : public KeyHandler
   set_playback_rate (double rate)
   {
     playback_rate = rate;
-    Msg::update_status ("playback_rate %f", playback_rate);
+    Msg::update_status ("playback_rate %g", playback_rate);
 
     relative_seek (0);
   }
